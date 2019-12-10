@@ -7,6 +7,8 @@
 cbuffer cbPerObject : register(b0)
 {
 	float4x4 gWorldViewProj; 
+    float gTotalTime;
+    float4 gDestColor;
 };
 
 struct VertexIn
@@ -36,7 +38,13 @@ VertexOut VS(VertexIn vin)
 
 float4 PS(VertexOut pin) : SV_Target
 {
-    return pin.Color;
+    const float pi = 3.14159f;
+    
+    float s = 0.5f * sin(2 * gTotalTime - 0.25f * pi) + 0.5f;
+    
+    float4 c = lerp(pin.Color, gDestColor, s);
+    
+    return c;
 }
 
 

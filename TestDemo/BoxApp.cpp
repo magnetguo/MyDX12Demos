@@ -25,6 +25,8 @@ struct Vertex
 struct ObjectConstants
 {
     XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
+	float TotalTime = 0.0f;
+	XMFLOAT4 DestColor;
 };
 
 class BoxApp : public D3DApp
@@ -169,6 +171,8 @@ void BoxApp::Update(const GameTimer& gt)
 	// Update the constant buffer with the latest worldViewProj matrix.
 	ObjectConstants objConstants;
     XMStoreFloat4x4(&objConstants.WorldViewProj, XMMatrixTranspose(worldViewProj));
+	objConstants.TotalTime = gt.TotalTime();
+	objConstants.DestColor = XMFLOAT4(Colors::Red);
     mObjectCB->CopyData(0, objConstants);
 }
 
