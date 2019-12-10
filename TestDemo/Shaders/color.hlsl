@@ -36,6 +36,7 @@ VertexOut VS(VertexIn vin)
 
 float4 PS(VertexOut pin) : SV_Target
 {
+    clip(pin.Color.r - 0.5f);
     return pin.Color;
 }
 
