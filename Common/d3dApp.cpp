@@ -224,7 +224,7 @@ void D3DApp::OnResize()
 	mScreenViewport.MinDepth = 0.0f;
 	mScreenViewport.MaxDepth = 1.0f;
 
-    mScissorRect = { mClientWidth / 4, mClientHeight / 4, mClientWidth / 4 * 3, mClientHeight / 4 * 3 };
+    mScissorRect = { 0, 0, mClientWidth, mClientHeight };
 }
  
 LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
