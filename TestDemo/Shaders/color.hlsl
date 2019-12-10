@@ -11,8 +11,8 @@ cbuffer cbPerObject : register(b0)
 
 struct VertexIn
 {
-	float3 PosL  : POSITION;
     float4 Color : COLOR;
+	float3 PosL  : POSITION;
 };
 
 struct VertexOut
