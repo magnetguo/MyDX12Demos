@@ -7,6 +7,7 @@
 cbuffer cbPerObject : register(b0)
 {
 	float4x4 gWorldViewProj; 
+    float gTotalTime;
 };
 
 struct VertexIn
@@ -36,6 +37,7 @@ VertexOut VS(VertexIn vin)
 
 float4 PS(VertexOut pin) : SV_Target
 {
+    pin.Color.r += 0.5f * sin(pin.Color.r * gTotalTime);
     return pin.Color;
 }
 
