@@ -6,7 +6,22 @@
  
 cbuffer cbPerObject : register(b0)
 {
-	float4x4 gWorld; 
+    float w00;
+    float w01;
+    float w02;
+    float w03;
+    float w10;
+    float w11;
+    float w12;
+    float w13;
+    float w20;
+    float w21;
+    float w22;
+    float w23;
+    float w30;
+    float w31;
+    float w32;
+    float w33;
 };
 
 cbuffer cbPass : register(b1)
@@ -44,7 +59,12 @@ VertexOut VS(VertexIn vin)
 	VertexOut vout;
 	
 	// Transform to homogeneous clip space.
-    float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
+    float4x4 gWorld = float4x4(
+                                w00, w01, w02, w03,
+                                w10, w11, w12, w13,
+                                w20, w21, w22, w23,
+                                w30, w31, w32, w33);
+    float4 posW = mul(float4(vin.PosL, 1.0f), transpose(gWorld));
     vout.PosH = mul(posW, gViewProj);
 	
 	// Just pass vertex color into the pixel shader.
