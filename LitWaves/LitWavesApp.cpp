@@ -705,7 +705,7 @@ void LitWavesApp::BuildMaterials()
 	grass->MatCBIndex = 0;
     grass->DiffuseAlbedo = XMFLOAT4(0.2f, 0.6f, 0.2f, 1.0f);
     grass->FresnelR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
-    grass->Roughness = 0.825f;
+    grass->Roughness = 0.125f;
 
     // This is not a good water material definition, but we do not have all the rendering
     // tools we need (transparency, environment reflection), so we fake it for now.
