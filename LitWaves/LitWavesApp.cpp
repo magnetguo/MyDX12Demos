@@ -460,7 +460,10 @@ void LitWavesApp::UpdateMainPassCB(const GameTimer& gt)
 	XMVECTOR lightDir = -MathHelper::SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 
 	XMStoreFloat3(&mMainPassCB.Lights[0].Direction, lightDir);
-	mMainPassCB.Lights[0].Strength = { 1.0f, 1.0f, 0.9f };
+
+	float redStrength = 0.5f * sin(2 * gt.TotalTime()) + 0.5f;
+
+	mMainPassCB.Lights[0].Strength = { redStrength, 0.3f, 0.3f };
 
 	auto currPassCB = mCurrFrameResource->PassCB.get();
 	currPassCB->CopyData(0, mMainPassCB);
