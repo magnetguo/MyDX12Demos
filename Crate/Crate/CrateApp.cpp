@@ -330,7 +330,7 @@ void CrateApp::OnMouseMove(WPARAM btnState, int x, int y)
         mRadius += dx - dy;
 
         // Restrict the radius.
-        mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
+        mRadius = MathHelper::Clamp(mRadius, 0.5f, 150.0f);
     }
 
     mLastMousePos.x = x;
@@ -656,6 +656,7 @@ void CrateApp::BuildRenderItems()
 	boxRitem->IndexCount = boxRitem->Geo->DrawArgs["box"].IndexCount;
 	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
+	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixTranslation(-0.5f, -0.5f, 0.0f) * XMMatrixScaling(3.0f, 3.0f, 1.0f));
 	mAllRitems.push_back(std::move(boxRitem));
 
 	// All the render items are opaque.

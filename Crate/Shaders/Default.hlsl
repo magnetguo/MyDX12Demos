@@ -21,7 +21,7 @@
 #include "LightingUtil.hlsl"
 
 Texture2D    gDiffuseMap : register(t0);
-SamplerState gsamLinear  : register(s0);
+SamplerState gsamLinear  : register(s4);
 
 
 // Constant data that varies per frame.
