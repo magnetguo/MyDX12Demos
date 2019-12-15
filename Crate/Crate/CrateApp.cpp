@@ -359,7 +359,11 @@ void CrateApp::UpdateCamera(const GameTimer& gt)
 
 void CrateApp::AnimateMaterials(const GameTimer& gt)
 {
-	
+	auto mat1 = mMaterials["woodCrate"].get();
+	auto matTrans = mat1->MatTransform;
+	XMStoreFloat4x4(&mat1->MatTransform, 
+		XMLoadFloat4x4(&mat1->MatTransform) * XMMatrixTranslation(-0.5f, -0.5f, 0.0f) * XMMatrixRotationZ(1.0f * gt.DeltaTime()) * XMMatrixTranslation(+0.5f, +0.5f, 0.0f));
+	mat1->NumFramesDirty = gNumFrameResources;
 }
 
 void CrateApp::UpdateObjectCBs(const GameTimer& gt)
