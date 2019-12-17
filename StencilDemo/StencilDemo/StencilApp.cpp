@@ -995,7 +995,7 @@ void StencilApp::BuildPSOs()
 	reflectionsDSS.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
 	reflectionsDSS.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
 	reflectionsDSS.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
-	reflectionsDSS.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
+	reflectionsDSS.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
 
 	// We are not rendering backfacing polygons, so these settings do not matter.
 	reflectionsDSS.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
