@@ -291,16 +291,16 @@ void StencilApp::Draw(const GameTimer& gt)
     DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
 	
 	// Mark the visible mirror pixels in the stencil buffer with the value 1
-	mCommandList->OMSetStencilRef(1);
-	mCommandList->SetPipelineState(mPSOs["markStencilMirrors"].Get());
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Mirrors]);
+	// mCommandList->OMSetStencilRef(1);
+	// mCommandList->SetPipelineState(mPSOs["markStencilMirrors"].Get());
+	// DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Mirrors]);
 
 	// Draw the reflection into the mirror only (only for pixels where the stencil buffer is 1).
 	// Note that we must supply a different per-pass constant buffer--one with the lights reflected.
 	mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress() + 1 * passCBByteSize);
 	mCommandList->SetPipelineState(mPSOs["drawStencilReflections"].Get());
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Reflected]);
-
+	/*
 	// Restore main pass constants and stencil ref.
 	mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
 	mCommandList->OMSetStencilRef(0);
@@ -312,7 +312,7 @@ void StencilApp::Draw(const GameTimer& gt)
 	// Draw shadows
 	mCommandList->SetPipelineState(mPSOs["shadow"].Get());
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Shadow]);
-	
+	*/
     // Indicate a state transition on the resource usage.
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
@@ -916,9 +916,16 @@ void StencilApp::BuildPSOs()
 		reinterpret_cast<BYTE*>(mShaders["opaquePS"]->GetBufferPointer()),
 		mShaders["opaquePS"]->GetBufferSize()
 	};
+
+	D3D12_DEPTH_STENCIL_DESC opaqueDSS;
+	opaqueDSS.DepthEnable = false;
+	opaqueDSS.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	opaqueDSS.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	opaqueDSS.StencilEnable = false;
+
 	opaquePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	opaquePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	opaquePsoDesc.DepthStencilState = opaqueDSS;
 	opaquePsoDesc.SampleMask = UINT_MAX;
 	opaquePsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	opaquePsoDesc.NumRenderTargets = 1;
@@ -960,7 +967,7 @@ void StencilApp::BuildPSOs()
 	mirrorDSS.DepthEnable = true;
 	mirrorDSS.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
 	mirrorDSS.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-	mirrorDSS.StencilEnable = true;
+	mirrorDSS.StencilEnable = false;
 	mirrorDSS.StencilReadMask = 0xff;
 	mirrorDSS.StencilWriteMask = 0xff;
 	
