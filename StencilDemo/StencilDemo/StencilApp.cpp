@@ -404,7 +404,7 @@ void StencilApp::OnKeyboardInput(const GameTimer& gt)
 	mSkullTranslation.y = MathHelper::Max(mSkullTranslation.y, 0.0f);
 
 	// Update the new world matrix.
-	XMMATRIX skullRotate = XMMatrixRotationY(0.0f*MathHelper::Pi);
+	XMMATRIX skullRotate = XMMatrixRotationY(0.5f*MathHelper::Pi);
 	XMMATRIX skullScale = XMMatrixScaling(0.45f, 0.45f, 0.45f);
 	XMMATRIX skullOffset = XMMatrixTranslation(mSkullTranslation.x, mSkullTranslation.y, mSkullTranslation.z);
 	XMMATRIX skullWorld = skullRotate*skullScale*skullOffset;
@@ -1005,8 +1005,8 @@ void StencilApp::BuildPSOs()
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC drawReflectionsPsoDesc = opaquePsoDesc;
 	drawReflectionsPsoDesc.DepthStencilState = reflectionsDSS;
-	drawReflectionsPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
-	drawReflectionsPsoDesc.RasterizerState.FrontCounterClockwise = false;
+	drawReflectionsPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	drawReflectionsPsoDesc.RasterizerState.FrontCounterClockwise = true;
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&drawReflectionsPsoDesc, IID_PPV_ARGS(&mPSOs["drawStencilReflections"])));
 
 	//
