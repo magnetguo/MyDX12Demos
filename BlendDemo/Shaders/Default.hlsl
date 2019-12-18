@@ -116,6 +116,18 @@ VertexOut VS(VertexIn vin)
 
 float4 PS(VertexOut pin) : SV_Target
 {
+#ifdef STENCIL_COLOR1
+    return float4(0.0f, 0.0f, 1.0f, 1.0f);
+#endif
+#ifdef STENCIL_COLOR2
+    return float4(0.0f, 1.0f, 0.0f, 1.0f);
+#endif
+#ifdef STENCIL_COLOR3
+    return float4(0.0f, 1.0f, 1.0f, 1.0f);
+#endif
+#ifdef STENCIL_COLOR4
+    return float4(1.0f, 0.0f, 0.0f, 1.0f);
+#endif
     float4 diffuseAlbedo = gDiffuseMap.Sample(gsamAnisotropicWrap, pin.TexC) * gDiffuseAlbedo;
 	
 #ifdef ALPHA_TEST
