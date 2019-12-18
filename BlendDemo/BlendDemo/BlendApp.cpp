@@ -289,10 +289,12 @@ void BlendApp::Draw(const GameTimer& gt)
 	mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
 
     DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
 
 	mCommandList->SetPipelineState(mPSOs["alphaTested"].Get());
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTested]);
+
+	mCommandList->SetPipelineState(mPSOs["transparent"].Get());
+	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
 
     // Indicate a state transition on the resource usage.
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
@@ -646,13 +648,13 @@ void BlendApp::BuildShadersAndInputLayout()
 {
 	const D3D_SHADER_MACRO defines[] =
 	{
-		"ADDITIVE", "1",
+		"FOG", "1",
 		NULL, NULL
 	};
 
 	const D3D_SHADER_MACRO alphaTestDefines[] =
 	{
-		"ADDITIVE", "1",
+		"FOG", "1",
 		"ALPHA_TEST", "1",
 		NULL, NULL
 	};
@@ -850,41 +852,9 @@ void BlendApp::BuildPSOs()
 		reinterpret_cast<BYTE*>(mShaders["opaquePS"]->GetBufferPointer()),
 		mShaders["opaquePS"]->GetBufferSize()
 	};
-
-	D3D12_RENDER_TARGET_BLEND_DESC additiveBlendDesc;
-	additiveBlendDesc.BlendEnable = true;
-	additiveBlendDesc.LogicOpEnable = false;
-	additiveBlendDesc.SrcBlend = D3D12_BLEND_ONE;
-	additiveBlendDesc.DestBlend = D3D12_BLEND_ONE;
-	additiveBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
-	additiveBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
-	additiveBlendDesc.DestBlendAlpha = D3D12_BLEND_ONE;
-	additiveBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
-	additiveBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
-	additiveBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-
-	D3D12_DEPTH_STENCIL_DESC additiveDepthStencilDesc;
-	additiveDepthStencilDesc.DepthEnable = false;
-	additiveDepthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-	additiveDepthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-	additiveDepthStencilDesc.StencilEnable = false;
-	additiveDepthStencilDesc.StencilReadMask = 0xff;
-	additiveDepthStencilDesc.StencilWriteMask = 0xff;
-
-	additiveDepthStencilDesc.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-	additiveDepthStencilDesc.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-	additiveDepthStencilDesc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_REPLACE;
-	additiveDepthStencilDesc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
-
-	// We are not rendering backfacing polygons, so these settings do not matter.
-	additiveDepthStencilDesc.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-	additiveDepthStencilDesc.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-	additiveDepthStencilDesc.BackFace.StencilPassOp = D3D12_STENCIL_OP_REPLACE;
-	additiveDepthStencilDesc.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
-
 	opaquePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	opaquePsoDesc.BlendState.RenderTarget[0] = additiveBlendDesc;
-	opaquePsoDesc.DepthStencilState = additiveDepthStencilDesc;
+	opaquePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	opaquePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.SampleMask = UINT_MAX;
 	opaquePsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	opaquePsoDesc.NumRenderTargets = 1;
@@ -893,6 +863,27 @@ void BlendApp::BuildPSOs()
 	opaquePsoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
 	opaquePsoDesc.DSVFormat = mDepthStencilFormat;
     ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaquePsoDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
+
+	//
+	// PSO for transparent objects
+	//
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC transparentPsoDesc = opaquePsoDesc;
+
+	D3D12_RENDER_TARGET_BLEND_DESC transparencyBlendDesc;
+	transparencyBlendDesc.BlendEnable = true;
+	transparencyBlendDesc.LogicOpEnable = false;
+	transparencyBlendDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	transparencyBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	transparencyBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
+	transparencyBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
+	transparencyBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
+	transparencyBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+	transparencyBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
+	transparencyBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+	transparentPsoDesc.BlendState.RenderTarget[0] = transparencyBlendDesc;
+	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&transparentPsoDesc, IID_PPV_ARGS(&mPSOs["transparent"])));
 
 	//
 	// PSO for alpha tested objects
