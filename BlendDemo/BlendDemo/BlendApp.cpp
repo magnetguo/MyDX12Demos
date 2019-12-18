@@ -264,7 +264,7 @@ void BlendApp::Draw(const GameTimer& gt)
 
     // A command list can be reset after it has been added to the command queue via ExecuteCommandList.
     // Reusing the command list reuses memory.
-    ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSOs["stencilCount"].Get()));
+    ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSOs["opaque"].Get()));
 
     mCommandList->RSSetViewports(1, &mScreenViewport);
     mCommandList->RSSetScissorRects(1, &mScissorRect);
@@ -288,37 +288,13 @@ void BlendApp::Draw(const GameTimer& gt)
 	auto passCB = mCurrFrameResource->PassCB->Resource();
 	mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
 
-	// Draw Stencil Count
     DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
 
 	mCommandList->SetPipelineState(mPSOs["alphaTested"].Get());
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTested]);
 
-	// Draw Stencil Color
-	mCommandList->SetPipelineState(mPSOs["stencilColor1"].Get());
-	mCommandList->OMSetStencilRef(1);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
+	mCommandList->SetPipelineState(mPSOs["transparent"].Get());
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTested]);
-
-	mCommandList->SetPipelineState(mPSOs["stencilColor2"].Get());
-	mCommandList->OMSetStencilRef(2);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTested]);
-
-	mCommandList->SetPipelineState(mPSOs["stencilColor3"].Get());
-	mCommandList->OMSetStencilRef(3);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTested]);
-
-	mCommandList->SetPipelineState(mPSOs["stencilColor4"].Get());
-	mCommandList->OMSetStencilRef(4);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTested]);
 
     // Indicate a state transition on the resource usage.
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
@@ -683,37 +659,9 @@ void BlendApp::BuildShadersAndInputLayout()
 		NULL, NULL
 	};
 
-	const D3D_SHADER_MACRO stencilColor1Defines[] =
-	{
-		"STENCIL_COLOR1", "1",
-		NULL, NULL
-	};
-
-	const D3D_SHADER_MACRO stencilColor2Defines[] =
-	{
-		"STENCIL_COLOR2", "1",
-		NULL, NULL
-	};
-
-	const D3D_SHADER_MACRO stencilColor3Defines[] =
-	{
-		"STENCIL_COLOR3", "1",
-		NULL, NULL
-	};
-
-	const D3D_SHADER_MACRO stencilColor4Defines[] =
-	{
-		"STENCIL_COLOR4", "1",
-		NULL, NULL
-	};
-
 	mShaders["standardVS"] = d3dUtil::CompileShader(L"..\\Shaders\\Default.hlsl", nullptr, "VS", "vs_5_0");
 	mShaders["opaquePS"] = d3dUtil::CompileShader(L"..\\Shaders\\Default.hlsl", defines, "PS", "ps_5_0");
 	mShaders["alphaTestedPS"] = d3dUtil::CompileShader(L"..\\Shaders\\Default.hlsl", alphaTestDefines, "PS", "ps_5_0");
-	mShaders["stencilColor1PS"] = d3dUtil::CompileShader(L"..\\Shaders\\Default.hlsl", stencilColor1Defines, "PS", "ps_5_0");
-	mShaders["stencilColor2PS"] = d3dUtil::CompileShader(L"..\\Shaders\\Default.hlsl", stencilColor2Defines, "PS", "ps_5_0");
-	mShaders["stencilColor3PS"] = d3dUtil::CompileShader(L"..\\Shaders\\Default.hlsl", stencilColor3Defines, "PS", "ps_5_0");
-	mShaders["stencilColor4PS"] = d3dUtil::CompileShader(L"..\\Shaders\\Default.hlsl", stencilColor4Defines, "PS", "ps_5_0");
 	
     mInputLayout =
     {
@@ -886,72 +834,62 @@ void BlendApp::BuildBoxGeometry()
 
 void BlendApp::BuildPSOs()
 {
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC stencilCountPsoDesc;
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePsoDesc;
 
 	//
 	// PSO for opaque objects.
 	//
-    ZeroMemory(&stencilCountPsoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	stencilCountPsoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
-	stencilCountPsoDesc.pRootSignature = mRootSignature.Get();
-	stencilCountPsoDesc.VS = 
+    ZeroMemory(&opaquePsoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+	opaquePsoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
+	opaquePsoDesc.pRootSignature = mRootSignature.Get();
+	opaquePsoDesc.VS = 
 	{ 
 		reinterpret_cast<BYTE*>(mShaders["standardVS"]->GetBufferPointer()), 
 		mShaders["standardVS"]->GetBufferSize()
 	};
-	stencilCountPsoDesc.PS = 
+	opaquePsoDesc.PS = 
 	{ 
 		reinterpret_cast<BYTE*>(mShaders["opaquePS"]->GetBufferPointer()),
 		mShaders["opaquePS"]->GetBufferSize()
 	};
+	opaquePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	opaquePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	opaquePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	opaquePsoDesc.SampleMask = UINT_MAX;
+	opaquePsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	opaquePsoDesc.NumRenderTargets = 1;
+	opaquePsoDesc.RTVFormats[0] = mBackBufferFormat;
+	opaquePsoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
+	opaquePsoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
+	opaquePsoDesc.DSVFormat = mDepthStencilFormat;
+    ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaquePsoDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
 
-	D3D12_RENDER_TARGET_BLEND_DESC stencilCountBlendDesc;
-	stencilCountBlendDesc.BlendEnable = false;
-	stencilCountBlendDesc.LogicOpEnable = false;
-	stencilCountBlendDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-	stencilCountBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-	stencilCountBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
-	stencilCountBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
-	stencilCountBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
-	stencilCountBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
-	stencilCountBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
-	stencilCountBlendDesc.RenderTargetWriteMask = 0;
+	//
+	// PSO for transparent objects
+	//
 
-	D3D12_DEPTH_STENCIL_DESC stencilCountDesc;
-	stencilCountDesc.DepthEnable = true;
-	stencilCountDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-	stencilCountDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-	stencilCountDesc.StencilEnable = true;
-	stencilCountDesc.StencilReadMask = 0xff;
-	stencilCountDesc.StencilWriteMask = 0xff;
-	stencilCountDesc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_INCR;
-	stencilCountDesc.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-	stencilCountDesc.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-	stencilCountDesc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC transparentPsoDesc = opaquePsoDesc;
 
-	stencilCountDesc.BackFace.StencilPassOp = D3D12_STENCIL_OP_INCR;
-	stencilCountDesc.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-	stencilCountDesc.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-	stencilCountDesc.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+	D3D12_RENDER_TARGET_BLEND_DESC transparencyBlendDesc;
+	transparencyBlendDesc.BlendEnable = true;
+	transparencyBlendDesc.LogicOpEnable = false;
+	transparencyBlendDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	transparencyBlendDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	transparencyBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
+	transparencyBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
+	transparencyBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
+	transparencyBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+	transparencyBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
+	transparencyBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 
-	stencilCountPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	stencilCountPsoDesc.BlendState.RenderTarget[0] = stencilCountBlendDesc;
-	stencilCountPsoDesc.DepthStencilState = stencilCountDesc;
-	stencilCountPsoDesc.SampleMask = UINT_MAX;
-	stencilCountPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	stencilCountPsoDesc.NumRenderTargets = 1;
-	stencilCountPsoDesc.RTVFormats[0] = mBackBufferFormat;
-	stencilCountPsoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
-	stencilCountPsoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
-	stencilCountPsoDesc.DSVFormat = mDepthStencilFormat;
-
-    ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&stencilCountPsoDesc, IID_PPV_ARGS(&mPSOs["stencilCount"])));
+	transparentPsoDesc.BlendState.RenderTarget[0] = transparencyBlendDesc;
+	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&transparentPsoDesc, IID_PPV_ARGS(&mPSOs["transparent"])));
 
 	//
 	// PSO for alpha tested objects
 	//
 
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC alphaTestedPsoDesc = stencilCountPsoDesc;
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC alphaTestedPsoDesc = opaquePsoDesc;
 	alphaTestedPsoDesc.PS = 
 	{ 
 		reinterpret_cast<BYTE*>(mShaders["alphaTestedPS"]->GetBufferPointer()),
@@ -959,53 +897,6 @@ void BlendApp::BuildPSOs()
 	};
 	alphaTestedPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&alphaTestedPsoDesc, IID_PPV_ARGS(&mPSOs["alphaTested"])));
-
-	//
-	// PSO for stencil coloring
-	//
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC stencilColor1PsoDesc = stencilCountPsoDesc;
-	stencilColor1PsoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-	stencilColor1PsoDesc.DepthStencilState.DepthEnable = false;
-	stencilColor1PsoDesc.DepthStencilState.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
-	stencilColor1PsoDesc.DepthStencilState.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-	stencilColor1PsoDesc.DepthStencilState.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-	stencilColor1PsoDesc.DepthStencilState.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
-
-	stencilColor1PsoDesc.DepthStencilState.BackFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
-	stencilColor1PsoDesc.DepthStencilState.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-	stencilColor1PsoDesc.DepthStencilState.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-	stencilColor1PsoDesc.DepthStencilState.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
-
-	stencilColor1PsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["stencilColor1PS"]->GetBufferPointer()),
-		mShaders["stencilColor1PS"]->GetBufferSize()
-	};
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&stencilColor1PsoDesc, IID_PPV_ARGS(&mPSOs["stencilColor1"])));
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC stencilColor2PsoDesc = stencilColor1PsoDesc;
-	stencilColor2PsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["stencilColor2PS"]->GetBufferPointer()),
-		mShaders["stencilColor2PS"]->GetBufferSize()
-	};
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&stencilColor2PsoDesc, IID_PPV_ARGS(&mPSOs["stencilColor2"])));
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC stencilColor3PsoDesc = stencilColor1PsoDesc;
-	stencilColor3PsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["stencilColor3PS"]->GetBufferPointer()),
-		mShaders["stencilColor3PS"]->GetBufferSize()
-	};
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&stencilColor3PsoDesc, IID_PPV_ARGS(&mPSOs["stencilColor3"])));
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC stencilColor4PsoDesc = stencilColor1PsoDesc;
-	stencilColor4PsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["stencilColor4PS"]->GetBufferPointer()),
-		mShaders["stencilColor4PS"]->GetBufferSize()
-	};
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&stencilColor4PsoDesc, IID_PPV_ARGS(&mPSOs["stencilColor4"])));
 }
 
 void BlendApp::BuildFrameResources()
