@@ -655,3 +655,34 @@ GeometryGenerator::MeshData GeometryGenerator::CreateQuad(float x, float y, floa
 
     return meshData;
 }
+
+GeometryGenerator::MeshData GeometryGenerator::CreateCircleByLineStrips(float radius, uint32 numSlices)
+{
+	MeshData meshData;
+
+	float phiStep = 2 * XM_PI / numSlices;
+
+	for (int i = 0; i <= numSlices; i++)
+	{
+		float phi = i * phiStep;
+		Vertex vertex;
+		vertex.Position.x = radius * cosf(phi);
+		vertex.Position.z = radius * sinf(phi);
+		vertex.Position.y = 0.0f;
+		vertex.TexC.x = (float)i / numSlices;
+		vertex.TexC.y = 0.0f;
+		meshData.Vertices.push_back(vertex);
+	}
+
+	for (int i = 0; i <= numSlices; i++)
+	{
+		int formerIndex = (i - 1) % numSlices;
+		int nextIndex = (i + 1) % numSlices;
+
+		XMStoreFloat3(&meshData.Vertices[i].Normal, 
+			XMVector3Normalize(XMLoadFloat3(&meshData.Vertices[i].Position) - XMLoadFloat3(&meshData.Vertices[formerIndex].Position))
+			+ XMVector3Normalize(XMLoadFloat3(&meshData.Vertices[i].Position) - XMLoadFloat3(&meshData.Vertices[nextIndex].Position)));
+	}
+
+	return meshData;
+}
