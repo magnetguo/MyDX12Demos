@@ -58,7 +58,6 @@ enum class RenderLayer : int
 	Transparent,
 	AlphaTested,
 	AlphaTestedTreeSprites,
-	Circle,
 	Count
 };
 
@@ -97,12 +96,11 @@ private:
     void BuildWavesGeometry();
 	void BuildBoxGeometry();
 	void BuildTreeSpritesGeometry();
-	void BuildCircleStripGeometry();
     void BuildPSOs();
     void BuildFrameResources();
     void BuildMaterials();
     void BuildRenderItems();
-    void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems, bool isIndexed);
+    void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
 
 	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
 
@@ -129,7 +127,6 @@ private:
 
     std::vector<D3D12_INPUT_ELEMENT_DESC> mStdInputLayout;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mTreeSpriteInputLayout;
-	std::vector<D3D12_INPUT_ELEMENT_DESC> mCircleInputLayout;
 
     RenderItem* mWavesRitem = nullptr;
 
@@ -210,7 +207,6 @@ bool TreeBillboardsApp::Initialize()
     BuildWavesGeometry();
 	BuildBoxGeometry();
 	BuildTreeSpritesGeometry();
-	BuildCircleStripGeometry();
 	BuildMaterials();
     BuildRenderItems();
     BuildFrameResources();
@@ -296,19 +292,16 @@ void TreeBillboardsApp::Draw(const GameTimer& gt)
 	auto passCB = mCurrFrameResource->PassCB->Resource();
 	mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
 
-    DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque], true);
+    DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
 
 	mCommandList->SetPipelineState(mPSOs["alphaTested"].Get());
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTested], true);
+	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTested]);
 
 	mCommandList->SetPipelineState(mPSOs["treeSprites"].Get());
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTestedTreeSprites], true);
+	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTestedTreeSprites]);
 
 	mCommandList->SetPipelineState(mPSOs["transparent"].Get());
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent], true);
-
-	mCommandList->SetPipelineState(mPSOs["circle"].Get());
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Circle], false);
+	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Transparent]);
 
     // Indicate a state transition on the resource usage.
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
@@ -701,10 +694,6 @@ void TreeBillboardsApp::BuildShadersAndInputLayouts()
 	mShaders["treeSpriteGS"] = d3dUtil::CompileShader(L"..\\Shaders\\TreeSprite.hlsl", nullptr, "GS", "gs_5_0");
 	mShaders["treeSpritePS"] = d3dUtil::CompileShader(L"..\\Shaders\\TreeSprite.hlsl", alphaTestDefines, "PS", "ps_5_0");
 
-	mShaders["circleVS"] = d3dUtil::CompileShader(L"..\\Shaders\\Circle.hlsl", nullptr, "VS", "vs_5_0");
-	mShaders["circleGS"] = d3dUtil::CompileShader(L"..\\Shaders\\Circle.hlsl", nullptr, "GS", "gs_5_0");
-	mShaders["circlePS"] = d3dUtil::CompileShader(L"..\\Shaders\\Circle.hlsl", defines, "PS", "ps_5_0");
-
     mStdInputLayout =
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -942,44 +931,6 @@ void TreeBillboardsApp::BuildTreeSpritesGeometry()
 	mGeometries["treeSpritesGeo"] = std::move(geo);
 }
 
-void TreeBillboardsApp :: BuildCircleStripGeometry()
-{
-	GeometryGenerator geoGen;
-	GeometryGenerator::MeshData circleStrip = geoGen.CreateCircleByLineStrips(10.0f, 20);
-	
-	std::vector<Vertex> vertices(circleStrip.Vertices.size());
-	for (size_t i = 0; i < circleStrip.Vertices.size(); ++i)
-	{
-		auto& p = circleStrip.Vertices[i].Position;
-		vertices[i].Pos = p;
-		vertices[i].Normal = circleStrip.Vertices[i].Normal;
-		vertices[i].TexC = circleStrip.Vertices[i].TexC;
-	}
-
-	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
-
-	auto geo = std::make_unique<MeshGeometry>();
-	geo->Name = "circleGeo";
-
-	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
-	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
-
-	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
-		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
-
-	geo->VertexByteStride = sizeof(Vertex);
-	geo->VertexBufferByteSize = vbByteSize;
-
-	SubmeshGeometry submesh;
-	submesh.IndexCount = (UINT)vertices.size();
-	submesh.StartIndexLocation = 0;
-	submesh.BaseVertexLocation = 0;
-
-	geo->DrawArgs["circle"] = submesh;
-
-	mGeometries["circleGeo"] = std::move(geo);
-}
-
 void TreeBillboardsApp::BuildPSOs()
 {
     D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePsoDesc;
@@ -1070,29 +1021,6 @@ void TreeBillboardsApp::BuildPSOs()
 	treeSpritePsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&treeSpritePsoDesc, IID_PPV_ARGS(&mPSOs["treeSprites"])));
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC circlePsoDesc = opaquePsoDesc;
-	circlePsoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["circleVS"]->GetBufferPointer()),
-		mShaders["circleVS"]->GetBufferSize()
-	};
-	circlePsoDesc.GS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["circleGS"]->GetBufferPointer()),
-		mShaders["circleGS"]->GetBufferSize()
-	};
-	circlePsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["circlePS"]->GetBufferPointer()),
-		mShaders["circlePS"]->GetBufferSize()
-	};
-	circlePsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
-	circlePsoDesc.InputLayout = { mStdInputLayout.data(), (UINT)mStdInputLayout.size() };
-	circlePsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-	// circlePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-
-	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&circlePsoDesc, IID_PPV_ARGS(&mPSOs["circle"])));
 }
 
 void TreeBillboardsApp::BuildFrameResources()
@@ -1200,24 +1128,13 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	mRitemLayer[(int)RenderLayer::AlphaTestedTreeSprites].push_back(treeSpritesRitem.get());
 
-	auto circleRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&circleRitem->World, XMMatrixTranslation(3.0f, 2.0f, -9.0f));
-	circleRitem->ObjCBIndex = 4;
-	circleRitem->Mat = mMaterials["wirefence"].get();
-	circleRitem->Geo = mGeometries["circleGeo"].get();
-	circleRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
-	circleRitem->IndexCount = circleRitem->Geo->DrawArgs["circle"].IndexCount;
-	circleRitem->BaseVertexLocation = circleRitem->Geo->DrawArgs["circle"].BaseVertexLocation;
-	mRitemLayer[(int)RenderLayer::Circle].push_back(circleRitem.get());
-
     mAllRitems.push_back(std::move(wavesRitem));
     mAllRitems.push_back(std::move(gridRitem));
 	mAllRitems.push_back(std::move(boxRitem));
 	mAllRitems.push_back(std::move(treeSpritesRitem));
-	mAllRitems.push_back(std::move(circleRitem));
 }
 
-void TreeBillboardsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems, bool isIndexed)
+void TreeBillboardsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
 {
     UINT objCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
     UINT matCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(MaterialConstants));
@@ -1231,8 +1148,7 @@ void TreeBillboardsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, cons
         auto ri = ritems[i];
 
         cmdList->IASetVertexBuffers(0, 1, &ri->Geo->VertexBufferView());
-		if (isIndexed)
-			cmdList->IASetIndexBuffer(&ri->Geo->IndexBufferView());
+        cmdList->IASetIndexBuffer(&ri->Geo->IndexBufferView());
         cmdList->IASetPrimitiveTopology(ri->PrimitiveType);
 
 		CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
@@ -1245,10 +1161,7 @@ void TreeBillboardsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, cons
         cmdList->SetGraphicsRootConstantBufferView(1, objCBAddress);
         cmdList->SetGraphicsRootConstantBufferView(3, matCBAddress);
 
-		if (isIndexed)
-			cmdList->DrawIndexedInstanced(ri->IndexCount, 1, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
-		else
-			cmdList->DrawInstanced(ri->IndexCount, 1, ri->StartIndexLocation, 0);
+        cmdList->DrawIndexedInstanced(ri->IndexCount, 1, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
     }
 }
 
