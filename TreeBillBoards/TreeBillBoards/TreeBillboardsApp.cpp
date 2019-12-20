@@ -1108,7 +1108,7 @@ void TreeBillboardsApp::BuildPSOs()
 		reinterpret_cast<BYTE*>(mShaders["spinePS"]->GetBufferPointer()),
 		mShaders["spinePS"]->GetBufferSize()
 	};
-	//spherePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	spherePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	//spherePsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&spherePsoDesc, IID_PPV_ARGS(&mPSOs["spherePso"])));

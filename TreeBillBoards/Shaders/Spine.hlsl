@@ -160,15 +160,67 @@ void OutputSubdivision(VertexOut v[6], inout TriangleStream<GeoOut> triStream)
     triStream.Append(gout[1]);
     triStream.Append(gout[5]);
     triStream.Append(gout[3]);
+    
+    triStream.RestartStrip();
 }
 
 [maxvertexcount(8)]
 void GS(triangle VertexOut gin[3], 
         inout TriangleStream<GeoOut> triStream)
 {	
+    float distToCam = length(mul(float4(0.0f, 0.0f, 0.0f, 1.0f), gWorld).xyz - gEyePosW);
     VertexOut v[6];
-    Subdivide(gin, v);
-    OutputSubdivision(v, triStream);
+    VertexOut v2[4][6];
+    if (distToCam >= 50)
+    {
+        GeoOut gout[3];
+        [unroll]
+        for (int i = 0; i < 3; ++i)
+        {
+            gout[i].PosW = mul(float4(gin[i].PosL, 1.0f), gWorld).xyz;
+            gout[i].NormalW = gin[i].NormalL;
+        
+            gout[i].PosH = mul(mul(float4(gin[i].PosL, 1.0f), gWorld), gViewProj);
+            gout[i].TexC = gin[i].TexC;
+            
+            triStream.Append(gout[i]);
+        }
+    }
+    else if (distToCam < 50 && distToCam >= 30)
+    {
+        Subdivide(gin, v);
+        OutputSubdivision(v, triStream);
+    }
+    else
+    {
+        Subdivide(gin, v);
+        
+        VertexOut vin[3];
+        vin[0] = v[0];
+        vin[1] = v[1];
+        vin[2] = v[2];
+        Subdivide(vin, v2[0]);
+        
+        vin[0] = v[1];
+        vin[1] = v[3];
+        vin[2] = v[2];
+        Subdivide(vin, v2[1]);
+        
+        vin[0] = v[2];
+        vin[1] = v[3];
+        vin[2] = v[4];
+        Subdivide(vin, v2[2]);
+        
+        vin[0] = v[1];
+        vin[1] = v[5];
+        vin[2] = v[3];
+        Subdivide(vin, v2[3]);
+        
+        OutputSubdivision(v2[0], triStream);
+        OutputSubdivision(v2[1], triStream);
+        OutputSubdivision(v2[2], triStream);
+        OutputSubdivision(v2[3], triStream);
+    }
 }
 
 float4 PS(GeoOut pin) : SV_Target
