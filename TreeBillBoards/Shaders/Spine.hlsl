@@ -170,7 +170,7 @@ void OutputSubdivision(VertexOut v[6], inout TriangleStream<GeoOut> triStream)
     // triStream.RestartStrip();
 }
 
-[maxvertexcount(8)]
+[maxvertexcount(48)]
 void GS(triangle VertexOut gin[3], 
         inout TriangleStream<GeoOut> triStream)
 {	
