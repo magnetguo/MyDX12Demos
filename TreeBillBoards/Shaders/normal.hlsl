@@ -108,23 +108,20 @@ VertexOut VS(VertexIn vin)
 }
 
 [maxvertexcount(2)]
-void GS(triangle VertexOut gin[3], 
+void GS(point VertexOut gin[1], 
         inout LineStream<GeoOut> triStream)
 {	
     GeoOut gout[2];
     
-    float3 normalFace = normalize(cross((gin[1].PosL - gin[0].PosL), (gin[2].PosL - gin[0].PosL)));
-    float3 center = (gin[0].PosL + gin[1].PosL + gin[2].PosL) / 3;
-    
-    gout[0].PosW = mul(float4(center, 1.0f), gWorld).xyz;
-    gout[0].NormalW = normalFace;
-    gout[0].PosH = mul(mul(float4(center, 1.0f), gWorld), gViewProj);
+    gout[0].PosW = mul(float4(gin[0].PosL, 1.0f), gWorld).xyz;
+    gout[0].NormalW = gin[0].NormalL;
+    gout[0].PosH = mul(mul(float4(gin[0].PosL, 1.0f), gWorld), gViewProj);
     gout[0].TexC = float2(0, 0);
     triStream.Append(gout[0]);
     
-    gout[1].PosW = mul(float4(center + 2 * normalFace, 1.0f), gWorld).xyz;
-    gout[1].NormalW = normalFace;
-    gout[1].PosH = mul(mul(float4(center + 2 * normalFace, 1.0f), gWorld), gViewProj);
+    gout[1].PosW = mul(float4(gin[0].PosL + 2 * gin[0].NormalL, 1.0f), gWorld).xyz;
+    gout[1].NormalW = gin[0].NormalL;
+    gout[1].PosH = mul(mul(float4(gin[0].PosL + 2 * gin[0].NormalL, 1.0f), gWorld), gViewProj);
     gout[1].TexC = float2(0, 0);
     triStream.Append(gout[1]);
 }
