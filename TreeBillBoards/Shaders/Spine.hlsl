@@ -149,19 +149,25 @@ void OutputSubdivision(VertexOut v[6], inout TriangleStream<GeoOut> triStream)
         gout[i].TexC = v[i].TexC;
     }
 
-    [unroll]
-    for (int j = 0; j < 5; ++j)
-    {
-        triStream.Append(gout[j]);
-    }
-
+    triStream.Append(gout[0]);
+    triStream.Append(gout[1]);
+    triStream.Append(gout[2]);
     triStream.RestartStrip();
     
     triStream.Append(gout[1]);
+    triStream.Append(gout[3]);
+    triStream.Append(gout[2]);
+    triStream.RestartStrip();
+    
+    triStream.Append(gout[2]);
+    triStream.Append(gout[3]);
+    triStream.Append(gout[4]);
+    triStream.RestartStrip();
+
+    triStream.Append(gout[1]);
     triStream.Append(gout[5]);
     triStream.Append(gout[3]);
-    
-    triStream.RestartStrip();
+    // triStream.RestartStrip();
 }
 
 [maxvertexcount(8)]
