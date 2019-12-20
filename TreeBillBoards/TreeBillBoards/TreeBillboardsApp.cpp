@@ -298,7 +298,7 @@ void TreeBillboardsApp::Draw(const GameTimer& gt)
     DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
 
 	mCommandList->SetPipelineState(mPSOs["spherePso"].Get());
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Sphere]);
+	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
 
 	mCommandList->SetPipelineState(mPSOs["alphaTested"].Get());
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTested]);
@@ -700,9 +700,9 @@ void TreeBillboardsApp::BuildShadersAndInputLayouts()
 	mShaders["treeSpriteGS"] = d3dUtil::CompileShader(L"..\\Shaders\\TreeSprite.hlsl", nullptr, "GS", "gs_5_0");
 	mShaders["treeSpritePS"] = d3dUtil::CompileShader(L"..\\Shaders\\TreeSprite.hlsl", alphaTestDefines, "PS", "ps_5_0");
 
-	mShaders["spineVS"] = d3dUtil::CompileShader(L"..\\Shaders\\spine.hlsl", nullptr, "VS", "vs_5_0");
-	mShaders["spineGS"] = d3dUtil::CompileShader(L"..\\Shaders\\spine.hlsl", nullptr, "GS", "gs_5_0");
-	mShaders["spinePS"] = d3dUtil::CompileShader(L"..\\Shaders\\spine.hlsl", defines, "PS", "ps_5_0");
+	mShaders["spineVS"] = d3dUtil::CompileShader(L"..\\Shaders\\normal.hlsl", nullptr, "VS", "vs_5_0");
+	mShaders["spineGS"] = d3dUtil::CompileShader(L"..\\Shaders\\normal.hlsl", nullptr, "GS", "gs_5_0");
+	mShaders["spinePS"] = d3dUtil::CompileShader(L"..\\Shaders\\normal.hlsl", defines, "PS", "ps_5_0");
 
     mStdInputLayout =
     {
@@ -1108,7 +1108,7 @@ void TreeBillboardsApp::BuildPSOs()
 		reinterpret_cast<BYTE*>(mShaders["spinePS"]->GetBufferPointer()),
 		mShaders["spinePS"]->GetBufferSize()
 	};
-	//spherePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	spherePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	spherePsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&spherePsoDesc, IID_PPV_ARGS(&mPSOs["spherePso"])));
