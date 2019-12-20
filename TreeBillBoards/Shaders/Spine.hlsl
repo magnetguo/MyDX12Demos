@@ -107,125 +107,25 @@ VertexOut VS(VertexIn vin)
 	return vout;
 }
 
-void Subdivide(VertexOut inVerts[3], out VertexOut outVerts[6])
-{
-    VertexOut m[3];
-    
-    m[0].PosL = 0.5f * (inVerts[0].PosL + inVerts[1].PosL);
-    m[1].PosL = 0.5f * (inVerts[1].PosL + inVerts[2].PosL);
-    m[2].PosL = 0.5f * (inVerts[2].PosL + inVerts[0].PosL);
-    
-    m[0].PosL = normalize(m[0].PosL) * length(inVerts[0].PosL);
-    m[1].PosL = normalize(m[1].PosL) * length(inVerts[0].PosL);
-    m[2].PosL = normalize(m[2].PosL) * length(inVerts[0].PosL);
-    
-    m[0].NormalL = normalize(m[0].PosL);
-    m[1].NormalL = normalize(m[1].PosL);
-    m[2].NormalL = normalize(m[2].PosL);
-    
-    m[0].TexC = 0.5f * (inVerts[0].TexC + inVerts[1].TexC);
-    m[1].TexC = 0.5f * (inVerts[1].TexC + inVerts[2].TexC);
-    m[2].TexC = 0.5f * (inVerts[2].TexC + inVerts[0].TexC);
-    
-    outVerts[0] = inVerts[0];
-    outVerts[1] = m[0];
-    outVerts[2] = m[2];
-    outVerts[3] = m[1];
-    outVerts[4] = inVerts[2];
-    outVerts[5] = inVerts[1];
-}
-
-void OutputSubdivision(VertexOut v[6], inout TriangleStream<GeoOut> triStream)
-{
-    GeoOut gout[6];
-    
-    [unroll]
-    for (int i = 0; i < 6; ++i)
-    {
-        gout[i].PosW = mul(float4(v[i].PosL, 1.0f), gWorld).xyz;
-        gout[i].NormalW = v[i].NormalL;
-        
-        gout[i].PosH = mul(mul(float4(v[i].PosL, 1.0f), gWorld), gViewProj);
-        gout[i].TexC = v[i].TexC;
-    }
-
-    triStream.Append(gout[0]);
-    triStream.Append(gout[1]);
-    triStream.Append(gout[2]);
-    triStream.RestartStrip();
-    
-    triStream.Append(gout[1]);
-    triStream.Append(gout[3]);
-    triStream.Append(gout[2]);
-    triStream.RestartStrip();
-    
-    triStream.Append(gout[2]);
-    triStream.Append(gout[3]);
-    triStream.Append(gout[4]);
-    triStream.RestartStrip();
-
-    triStream.Append(gout[1]);
-    triStream.Append(gout[5]);
-    triStream.Append(gout[3]);
-    // triStream.RestartStrip();
-}
-
-[maxvertexcount(48)]
+[maxvertexcount(3)]
 void GS(triangle VertexOut gin[3], 
         inout TriangleStream<GeoOut> triStream)
 {	
-    float distToCam = length(mul(float4(0.0f, 0.0f, 0.0f, 1.0f), gWorld).xyz - gEyePosW);
-    VertexOut v[6];
-    VertexOut v2[4][6];
-    if (distToCam >= 50)
+    GeoOut gout[3];
+    
+    float3 normalFace = cross((gin[1].PosL - gin[0].PosL), (gin[2].PosL - gin[0].PosL));
+    
+    [unroll]
+    for (int i = 0; i < 3; ++i)
     {
-        GeoOut gout[3];
-        [unroll]
-        for (int i = 0; i < 3; ++i)
-        {
-            gout[i].PosW = mul(float4(gin[i].PosL, 1.0f), gWorld).xyz;
-            gout[i].NormalW = gin[i].NormalL;
+        gin[i].PosL = gin[i].PosL + normalFace * gTotalTime;
+        gout[i].PosW = mul(float4(gin[i].PosL, 1.0f), gWorld).xyz;
+        gout[i].NormalW = gin[i].NormalL;
         
-            gout[i].PosH = mul(mul(float4(gin[i].PosL, 1.0f), gWorld), gViewProj);
-            gout[i].TexC = gin[i].TexC;
+        gout[i].PosH = mul(mul(float4(gin[i].PosL, 1.0f), gWorld), gViewProj);
+        gout[i].TexC = gin[i].TexC;
             
-            triStream.Append(gout[i]);
-        }
-    }
-    else if (distToCam < 50 && distToCam >= 30)
-    {
-        Subdivide(gin, v);
-        OutputSubdivision(v, triStream);
-    }
-    else
-    {
-        Subdivide(gin, v);
-        
-        VertexOut vin[3];
-        vin[0] = v[0];
-        vin[1] = v[1];
-        vin[2] = v[2];
-        Subdivide(vin, v2[0]);
-        
-        vin[0] = v[1];
-        vin[1] = v[3];
-        vin[2] = v[2];
-        Subdivide(vin, v2[1]);
-        
-        vin[0] = v[2];
-        vin[1] = v[3];
-        vin[2] = v[4];
-        Subdivide(vin, v2[2]);
-        
-        vin[0] = v[1];
-        vin[1] = v[5];
-        vin[2] = v[3];
-        Subdivide(vin, v2[3]);
-        
-        OutputSubdivision(v2[0], triStream);
-        OutputSubdivision(v2[1], triStream);
-        OutputSubdivision(v2[2], triStream);
-        OutputSubdivision(v2[3], triStream);
+        triStream.Append(gout[i]);
     }
 }
 
