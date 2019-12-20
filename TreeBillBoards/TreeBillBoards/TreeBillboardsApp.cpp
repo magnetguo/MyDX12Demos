@@ -58,6 +58,7 @@ enum class RenderLayer : int
 	Transparent,
 	AlphaTested,
 	AlphaTestedTreeSprites,
+	Sphere,
 	Count
 };
 
@@ -93,6 +94,7 @@ private:
 	void BuildDescriptorHeaps();
     void BuildShadersAndInputLayouts();
     void BuildLandGeometry();
+	void BuildSphereGeometry();
     void BuildWavesGeometry();
 	void BuildBoxGeometry();
 	void BuildTreeSpritesGeometry();
@@ -204,6 +206,7 @@ bool TreeBillboardsApp::Initialize()
 	BuildDescriptorHeaps();
     BuildShadersAndInputLayouts();
     BuildLandGeometry();
+	BuildSphereGeometry();
     BuildWavesGeometry();
 	BuildBoxGeometry();
 	BuildTreeSpritesGeometry();
@@ -293,6 +296,9 @@ void TreeBillboardsApp::Draw(const GameTimer& gt)
 	mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
 
     DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
+
+	mCommandList->SetPipelineState(mPSOs["spherePso"].Get());
+	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Sphere]);
 
 	mCommandList->SetPipelineState(mPSOs["alphaTested"].Get());
 	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::AlphaTested]);
@@ -694,6 +700,10 @@ void TreeBillboardsApp::BuildShadersAndInputLayouts()
 	mShaders["treeSpriteGS"] = d3dUtil::CompileShader(L"..\\Shaders\\TreeSprite.hlsl", nullptr, "GS", "gs_5_0");
 	mShaders["treeSpritePS"] = d3dUtil::CompileShader(L"..\\Shaders\\TreeSprite.hlsl", alphaTestDefines, "PS", "ps_5_0");
 
+	mShaders["spineVS"] = d3dUtil::CompileShader(L"..\\Shaders\\spine.hlsl", nullptr, "VS", "vs_5_0");
+	mShaders["spineGS"] = d3dUtil::CompileShader(L"..\\Shaders\\spine.hlsl", nullptr, "GS", "gs_5_0");
+	mShaders["spinePS"] = d3dUtil::CompileShader(L"..\\Shaders\\spine.hlsl", defines, "PS", "ps_5_0");
+
     mStdInputLayout =
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -762,6 +772,61 @@ void TreeBillboardsApp::BuildLandGeometry()
 	geo->DrawArgs["grid"] = submesh;
 
 	mGeometries["landGeo"] = std::move(geo);
+}
+
+void TreeBillboardsApp::BuildSphereGeometry()
+{
+	GeometryGenerator geoGen;
+	GeometryGenerator::MeshData grid = geoGen.CreateGeosphere(10.0f, 0);
+
+	//
+	// Extract the vertex elements we are interested and apply the height function to
+	// each vertex.  In addition, color the vertices based on their height so we have
+	// sandy looking beaches, grassy low hills, and snow mountain peaks.
+	//
+
+	std::vector<Vertex> vertices(grid.Vertices.size());
+	for (size_t i = 0; i < grid.Vertices.size(); ++i)
+	{
+		auto& p = grid.Vertices[i].Position;
+		vertices[i].Pos = p;
+		vertices[i].Normal = grid.Vertices[i].Normal;
+		vertices[i].TexC = grid.Vertices[i].TexC;
+	}
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+
+	std::vector<std::uint16_t> indices = grid.GetIndices16();
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "sphereGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	SubmeshGeometry submesh;
+	submesh.IndexCount = (UINT)indices.size();
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
+
+	geo->DrawArgs["sphere"] = submesh;
+
+	mGeometries["sphereGeo"] = std::move(geo);
 }
 
 void TreeBillboardsApp::BuildWavesGeometry()
@@ -1021,6 +1086,32 @@ void TreeBillboardsApp::BuildPSOs()
 	treeSpritePsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&treeSpritePsoDesc, IID_PPV_ARGS(&mPSOs["treeSprites"])));
+
+	//
+	// PSO for spheres
+	//
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC spherePsoDesc = opaquePsoDesc;
+	spherePsoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(mShaders["spineVS"]->GetBufferPointer()),
+		mShaders["spineVS"]->GetBufferSize()
+	};
+
+	spherePsoDesc.GS =
+	{
+		reinterpret_cast<BYTE*>(mShaders["spineGS"]->GetBufferPointer()),
+		mShaders["spineGS"]->GetBufferSize()
+	};
+
+	spherePsoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mShaders["spinePS"]->GetBufferPointer()),
+		mShaders["spinePS"]->GetBufferSize()
+	};
+	//spherePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	//spherePsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&spherePsoDesc, IID_PPV_ARGS(&mPSOs["spherePso"])));
 }
 
 void TreeBillboardsApp::BuildFrameResources()
@@ -1104,6 +1195,18 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(gridRitem.get());
 
+	auto sphereRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&sphereRitem->World, XMMatrixTranslation(-10.0f, 10.0f, -5.0f));
+	sphereRitem->ObjCBIndex = 4;
+	sphereRitem->Mat = mMaterials["grass"].get();
+	sphereRitem->Geo = mGeometries["sphereGeo"].get();
+	sphereRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	sphereRitem->IndexCount = sphereRitem->Geo->DrawArgs["sphere"].IndexCount;
+	sphereRitem->StartIndexLocation = sphereRitem->Geo->DrawArgs["sphere"].StartIndexLocation;
+	sphereRitem->BaseVertexLocation = sphereRitem->Geo->DrawArgs["sphere"].BaseVertexLocation;
+
+	mRitemLayer[(int)RenderLayer::Sphere].push_back(sphereRitem.get());
+
 	auto boxRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&boxRitem->World, XMMatrixTranslation(3.0f, 2.0f, -9.0f));
 	boxRitem->ObjCBIndex = 2;
@@ -1132,6 +1235,7 @@ void TreeBillboardsApp::BuildRenderItems()
     mAllRitems.push_back(std::move(gridRitem));
 	mAllRitems.push_back(std::move(boxRitem));
 	mAllRitems.push_back(std::move(treeSpritesRitem));
+	mAllRitems.push_back(std::move(sphereRitem));
 }
 
 void TreeBillboardsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)

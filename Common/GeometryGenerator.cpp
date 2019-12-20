@@ -309,7 +309,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateGeosphere(float radius, uin
     MeshData meshData;
 
 	// Put a cap on the number of subdivisions.
-    numSubdivisions = std::min<uint32>(numSubdivisions, 6u);
+    // numSubdivisions = std::min<uint32>(numSubdivisions, 6u);
 
 	// Approximate a sphere by tessellating an icosahedron.
 
