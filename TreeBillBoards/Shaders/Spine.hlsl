@@ -107,7 +107,7 @@ VertexOut VS(VertexIn vin)
 	return vout;
 }
 
-void Subdivide(VertexOut inVerts[3], VertexOut outVerts[6])
+void Subdivide(VertexOut inVerts[3], out VertexOut outVerts[6])
 {
     VertexOut m[3];
     
@@ -143,7 +143,7 @@ void OutputSubdivision(VertexOut v[6], inout TriangleStream<GeoOut> triStream)
     for (int i = 0; i < 6; ++i)
     {
         gout[i].PosW = mul(float4(v[i].PosL, 1.0f), gWorld).xyz;
-        gout[i].NormalW = mul(float4(v[i].NormalL, 0.0f), gWorld);
+        gout[i].NormalW = v[i].NormalL;
         
         gout[i].PosH = mul(mul(float4(v[i].PosL, 1.0f), gWorld), gViewProj);
         gout[i].TexC = v[i].TexC;
