@@ -20,7 +20,6 @@ const int gNumFrameResources = 3;
 struct Data
 {
 	XMFLOAT3 v1;
-	XMFLOAT2 v2;
 };
 
 // Lightweight structure stores parameters to draw a shape.  This will
@@ -123,12 +122,10 @@ private:
 	// Render items divided by PSO.
 	std::vector<RenderItem*> mRitemLayer[(int)RenderLayer::Count];
 
-	const int NumDataElements = 32;
+	const int NumDataElements = 64;
 
 	ComPtr<ID3D12Resource> mInputBufferA = nullptr;
 	ComPtr<ID3D12Resource> mInputUploadBufferA = nullptr;
-	ComPtr<ID3D12Resource> mInputBufferB = nullptr;
-	ComPtr<ID3D12Resource> mInputUploadBufferB = nullptr;
 	ComPtr<ID3D12Resource> mOutputBuffer = nullptr;
 	ComPtr<ID3D12Resource> mReadBackBuffer = nullptr;
 
@@ -347,8 +344,7 @@ void VecAddCSApp::DoComputeWork()
 	mCommandList->SetComputeRootSignature(mRootSignature.Get());
 
 	mCommandList->SetComputeRootShaderResourceView(0, mInputBufferA->GetGPUVirtualAddress());
-	mCommandList->SetComputeRootShaderResourceView(1, mInputBufferB->GetGPUVirtualAddress());
-	mCommandList->SetComputeRootUnorderedAccessView(2, mOutputBuffer->GetGPUVirtualAddress());
+	mCommandList->SetComputeRootUnorderedAccessView(1, mOutputBuffer->GetGPUVirtualAddress());
  
 	mCommandList->Dispatch(1, 1, 1);
 
@@ -372,15 +368,14 @@ void VecAddCSApp::DoComputeWork()
 	FlushCommandQueue();
 
 	// Map the data so we can read it on CPU.
-	Data* mappedData = nullptr;
+	float* mappedData = nullptr;
 	ThrowIfFailed(mReadBackBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedData)));
 
 	std::ofstream fout("results.txt");
 
 	for(int i = 0; i < NumDataElements; ++i)
 	{
-		fout << "(" << mappedData[i].v1.x << ", " << mappedData[i].v1.y << ", " << mappedData[i].v1.z <<
-			", " << mappedData[i].v2.x << ", " << mappedData[i].v2.y << ")" << std::endl;
+		fout << mappedData[i] << std::endl;
 	}
 
 	mReadBackBuffer->Unmap(0, nullptr);
@@ -390,17 +385,12 @@ void VecAddCSApp::BuildBuffers()
 {
 	// Generate some data.
 	std::vector<Data> dataA(NumDataElements);
-	std::vector<Data> dataB(NumDataElements);
 	for(int i = 0; i < NumDataElements; ++i)
 	{
 		dataA[i].v1 = XMFLOAT3(i, i, i);
-		dataA[i].v2 = XMFLOAT2(i, 0);
-
-		dataB[i].v1 = XMFLOAT3(-i, i, 0.0f);
-		dataB[i].v2 = XMFLOAT2(0, -i);
 	}
 
-	UINT64 byteSize = dataA.size()*sizeof(Data);
+	UINT64 byteSize = dataA.size() * sizeof(Data);
 
 	// Create some buffers to be used as SRVs.
 	mInputBufferA = d3dUtil::CreateDefaultBuffer(
@@ -410,18 +400,13 @@ void VecAddCSApp::BuildBuffers()
 		byteSize,
 		mInputUploadBufferA);
 
-	mInputBufferB = d3dUtil::CreateDefaultBuffer(
-		md3dDevice.Get(),
-		mCommandList.Get(),
-		dataB.data(),
-		byteSize,
-		mInputUploadBufferB);
+	UINT64 outByteSize = dataA.size() * sizeof(float);
 
 	// Create the buffer that will be a UAV.
 	ThrowIfFailed(md3dDevice->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(byteSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
+		&CD3DX12_RESOURCE_DESC::Buffer(outByteSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		nullptr,
 		IID_PPV_ARGS(&mOutputBuffer)));
@@ -429,7 +414,7 @@ void VecAddCSApp::BuildBuffers()
 	ThrowIfFailed(md3dDevice->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
 		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(byteSize),
+		&CD3DX12_RESOURCE_DESC::Buffer(outByteSize),
 		D3D12_RESOURCE_STATE_COPY_DEST,
 		nullptr,
 		IID_PPV_ARGS(&mReadBackBuffer)));
@@ -438,15 +423,14 @@ void VecAddCSApp::BuildBuffers()
 void VecAddCSApp::BuildRootSignature()
 {
     // Root parameter can be a table, root descriptor or root constants.
-    CD3DX12_ROOT_PARAMETER slotRootParameter[3];
+    CD3DX12_ROOT_PARAMETER slotRootParameter[2];
 
 	// Perfomance TIP: Order from most frequent to least frequent.
 	slotRootParameter[0].InitAsShaderResourceView(0);
-    slotRootParameter[1].InitAsShaderResourceView(1);
-    slotRootParameter[2].InitAsUnorderedAccessView(0);
+    slotRootParameter[1].InitAsUnorderedAccessView(0);
 
     // A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(3, slotRootParameter,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(2, slotRootParameter,
 		0, nullptr,
 		D3D12_ROOT_SIGNATURE_FLAG_NONE);
 
