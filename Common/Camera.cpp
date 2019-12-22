@@ -223,6 +223,16 @@ void Camera::RotateY(float angle)
 	mViewDirty = true;
 }
 
+void Camera::Roll(float angle)
+{
+	XMMATRIX R = XMMatrixRotationAxis(XMLoadFloat3(&mLook), angle);
+
+	XMStoreFloat3(&mRight, XMVector3TransformNormal(XMLoadFloat3(&mRight), R));
+	XMStoreFloat3(&mUp, XMVector3TransformNormal(XMLoadFloat3(&mUp), R));
+
+	mViewDirty = true;
+}
+
 void Camera::UpdateViewMatrix()
 {
 	if(mViewDirty)
