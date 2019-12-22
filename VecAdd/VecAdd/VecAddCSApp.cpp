@@ -384,13 +384,13 @@ void VecAddCSApp::DoComputeWork()
 void VecAddCSApp::BuildBuffers()
 {
 	// Generate some data.
-	std::vector<XMFLOAT3> dataA(NumDataElements);
+	std::vector<Data> dataA(NumDataElements);
 	for(int i = 0; i < NumDataElements; ++i)
 	{
-		dataA[i] = XMFLOAT3(i, i, i);
+		dataA[i].v1 = XMFLOAT3(i, i, i);
 	}
 
-	UINT64 byteSize = dataA.size() * sizeof(XMFLOAT3);
+	UINT64 byteSize = dataA.size() * sizeof(Data);
 
 	// Create some buffers to be used as SRVs.
 	mInputBufferA = d3dUtil::CreateDefaultBuffer(
