@@ -121,7 +121,7 @@ struct HullOut
 };
 
 [domain("tri")]
-[partitioning("integer")]
+[partitioning("fractional_odd")]
 [outputtopology("triangle_cw")]
 [outputcontrolpoints(3)]
 [patchconstantfunc("ConstantHS")]
